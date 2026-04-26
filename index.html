@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تقويم العائلة</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f5f5f0; min-height: 100vh; direction: rtl; }
+  :root { --primary: #1a6e3c; --primary-light: #e8f5ee; }
+
+  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: #fff; border-bottom: 0.5px solid #e0e0d8; flex-wrap: wrap; gap: 8px; }
+  .nav-title { font-size: 17px; font-weight: 500; color: #111; }
+  .nav-btns { display: flex; gap: 8px; }
+  .nav-btn { font-size: 13px; padding: 6px 14px; border: 0.5px solid #ccc; border-radius: 8px; background: transparent; cursor: pointer; color: #111; }
+  .nav-btn:hover { background: #f0f0e8; }
+  .nav-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  .view { display: none; padding: 20px; max-width: 900px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+  .cal-month { font-size: 18px; font-weight: 500; color: #111; }
+  .cal-nav { display: flex; gap: 8px; }
+  .cal-nav button { width: 32px; height: 32px; border: 0.5px solid #e0e0d8; border-radius: 8px; background: transparent; cursor: pointer; font-size: 14px; color: #111; }
+  .cal-nav button:hover { background: #f0f0e8; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-day-name { text-align: center; font-size: 12px; color: #666; padding: 6px 0; font-weight: 500; }
+  .cal-day { min-height: 68px; background: #fff; border: 0.5px solid #e0e0d8; border-radius: 8px; padding: 5px; cursor: pointer; transition: border-color 0.15s; }
+  .cal-day:hover { border-color: var(--primary); }
+  .cal-day.empty { background: transparent; border-color: transparent; cursor: default; }
+  .cal-day.today { border-color: var(--primary); }
+  .cal-day.has-event { background: var(--primary-light); }
+  .day-num { font-size: 13px; font-weight: 500; color: #111; margin-bottom: 3px; }
+  .cal-day.today .day-num { background: var(--primary); color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .event-dot { font-size: 11px; color: #fff; border-radius: 4px; padding: 1px 4px; margin-top: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 100%; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .modal { background: #fff; border-radius: 14px; width: 100%; max-width: 420px; max-height: 80vh; overflow-y: auto; }
+  .modal-header { padding: 16px 20px 12px; border-bottom: 0.5px solid #e0e0d8; display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-size: 16px; font-weight: 500; color: #111; }
+  .modal-close { width: 28px; height: 28px; border: none; background: #f0f0e8; border-radius: 50%; cursor: pointer; font-size: 14px; color: #111; }
+  .modal-body { padding: 16px 20px; }
+  .modal-body img { width: 100%; border-radius: 10px; margin-bottom: 12px; object-fit: cover; max-height: 200px; }
+  .ev-type-badge { display: inline-block; font-size: 12px; padding: 3px 10px; border-radius: 20px; color: #fff; margin-bottom: 10px; }
+  .ev-detail { font-size: 14px; color: #555; margin-bottom: 6px; display: flex; gap: 8px; align-items: flex-start; }
+  .ev-desc { font-size: 14px; color: #111; line-height: 1.6; margin-top: 10px; }
+
+  .events-list { display: flex; flex-direction: column; gap: 12px; }
+  .ev-card { background: #fff; border: 0.5px solid #e0e0d8; border-radius: 12px; padding: 14px 16px; cursor: pointer; }
+  .ev-card:hover { border-color: var(--primary); }
+  .ev-card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .ev-card-title { font-size: 15px; font-weight: 500; color: #111; }
+  .ev-card-date { font-size: 12px; color: #666; margin-top: 4px; }
+  .ev-card-loc { font-size: 13px; color: #666; margin-top: 6px; }
+
+  .admin-login { max-width: 360px; margin: 40px auto; background: #fff; border-radius: 14px; border: 0.5px solid #e0e0d8; padding: 28px; }
+  .admin-login h2 { font-size: 17px; font-weight: 500; margin-bottom: 20px; color: #111; }
+  .admin-panel { max-width: 600px; margin: 0 auto; }
+  .admin-panel h2 { font-size: 17px; font-weight: 500; margin-bottom: 16px; color: #111; }
+  label { font-size: 13px; color: #555; display: block; margin-bottom: 4px; margin-top: 12px; }
+  input, select, textarea { width: 100%; padding: 8px 12px; border: 0.5px solid #ccc; border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff; color: #111; direction: rtl; }
+  textarea { resize: vertical; min-height: 80px; }
+  .btn-primary { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 9px 20px; font-size: 14px; cursor: pointer; margin-top: 16px; width: 100%; font-family: inherit; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-danger { background: #c0392b; color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .admin-ev-item { background: #fff; border: 0.5px solid #e0e0d8; border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+  .admin-ev-info { font-size: 14px; color: #111; }
+  .admin-ev-info span { font-size: 12px; color: #666; display: block; margin-top: 2px; }
+  .section-title { font-size: 15px; font-weight: 500; color: #111; margin: 20px 0 10px; border-top: 0.5px solid #e0e0d8; padding-top: 16px; }
+  .img-preview { width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; margin-top: 8px; display: none; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-btn { font-size: 12px; padding: 5px 12px; border: 0.5px solid #ccc; border-radius: 20px; background: transparent; cursor: pointer; color: #111; }
+  .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .empty-msg { text-align: center; padding: 40px 20px; color: #777; font-size: 14px; }
+  .month-nav-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .month-chip { font-size: 13px; padding: 5px 14px; border: 0.5px solid #ccc; border-radius: 20px; background: transparent; cursor: pointer; color: #111; }
+  .month-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .logout-btn { font-size: 12px; color: #c0392b; border: none; background: none; cursor: pointer; padding: 6px 0; font-family: inherit; }
+  .form-card { background: #fff; border: 0.5px solid #e0e0d8; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+  .form-heading { font-size: 15px; font-weight: 500; color: #111; margin-bottom: 12px; }
+
+  @media (max-width: 600px) {
+    .cal-day { min-height: 48px; }
+    .event-dot { display: none; }
+    .cal-day.has-event { border-color: var(--primary); border-width: 1.5px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-nav">
+  <span class="nav-title">تقويم العائلة</span>
+  <div class="nav-btns">
+    <button class="nav-btn active" onclick="showView('calendar', this)">التقويم</button>
+    <button class="nav-btn" onclick="showView('list', this)">قائمة الأحداث</button>
+    <button class="nav-btn" onclick="showView('admin', this)">المشرف</button>
+  </div>
+</div>
+
+<!-- CALENDAR VIEW -->
+<div id="view-calendar" class="view active">
+  <div class="cal-header">
+    <div class="cal-nav">
+      <button onclick="changeMonth(-1)">&#8594;</button>
+      <button onclick="changeMonth(1)">&#8592;</button>
+    </div>
+    <div class="cal-month" id="cal-month-label"></div>
+    <button class="nav-btn" onclick="goToday()">اليوم</button>
+  </div>
+  <div class="cal-grid" id="cal-grid"></div>
+</div>
+
+<!-- LIST VIEW -->
+<div id="view-list" class="view">
+  <div class="month-nav-row" id="list-month-nav"></div>
+  <div class="filter-row" id="filter-row"></div>
+  <div class="events-list" id="events-list"></div>
+</div>
+
+<!-- ADMIN VIEW -->
+<div id="view-admin" class="view">
+  <div class="admin-login" id="admin-login">
+    <h2>دخول المشرف</h2>
+    <label>كلمة المرور</label>
+    <input type="password" id="admin-pass" placeholder="أدخل كلمة المرور" onkeydown="if(event.key==='Enter')adminLogin()">
+    <button class="btn-primary" onclick="adminLogin()">دخول</button>
+    <p id="login-err" style="color:#c0392b;font-size:13px;margin-top:8px;display:none;">كلمة المرور غير صحيحة</p>
+  </div>
+  <div class="admin-panel" id="admin-panel" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2>لوحة التحكم</h2>
+      <button class="logout-btn" onclick="adminLogout()">خروج</button>
+    </div>
+    <div class="form-card">
+      <div class="form-heading" id="form-heading">إضافة حدث جديد</div>
+      <label>عنوان الحدث *</label>
+      <input type="text" id="ev-title" placeholder="مثال: حفل زواج أحمد">
+      <label>نوع الحدث *</label>
+      <select id="ev-type">
+        <option value="wedding">زواج</option>
+        <option value="visit">زيارة مريض</option>
+        <option value="birth">مولود</option>
+        <option value="general">مناسبة عامة</option>
+        <option value="death">وفاة</option>
+      </select>
+      <label>التاريخ *</label>
+      <input type="date" id="ev-date">
+      <label>المكان</label>
+      <input type="text" id="ev-location" placeholder="مثال: قاعة الأفراح - الدمام">
+      <label>وصف (اختياري)</label>
+      <textarea id="ev-desc" placeholder="تفاصيل إضافية..."></textarea>
+      <label>صورة (اختياري)</label>
+      <input type="file" id="ev-image" accept="image/*" onchange="previewImg(this)">
+      <img id="img-preview" class="img-preview">
+      <input type="hidden" id="ev-id">
+      <button class="btn-primary" onclick="saveEvent()">حفظ الحدث</button>
+      <button class="btn-primary" id="cancel-edit-btn" onclick="cancelEdit()" style="display:none;background:#888;margin-top:6px;">إلغاء التعديل</button>
+    </div>
+    <div class="section-title">الأحداث المسجلة</div>
+    <div id="admin-ev-list"></div>
+  </div>
+</div>
+
+<!-- EVENT DETAIL MODAL -->
+<div class="modal-overlay" id="modal" style="display:none;" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title"></span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+  const ADMIN_PASS = "family2025";
+  const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+  const DAYS_AR = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+  const TYPE_LABELS = {wedding:"زواج",visit:"زيارة مريض",birth:"مولود",general:"مناسبة عامة",death:"وفاة"};
+  const TYPE_COLORS = {wedding:"#c0392b",visit:"#2980b9",birth:"#8e44ad",general:"#16a085",death:"#7f8c8d"};
+
+  let currentDate = new Date();
+  let events = [];
+  let listFilter = 'all';
+  let listMonth = null;
+
+  function loadEvents() {
+    try {
+      const saved = localStorage.getItem('family-calendar-events');
+      if (saved) events = JSON.parse(saved);
+    } catch(e) { events = []; }
+    renderCalendar();
+    renderList();
+  }
+
+  function saveEvents() {
+    try { localStorage.setItem('family-calendar-events', JSON.stringify(events)); } catch(e){}
+  }
+
+  function showView(v, btn) {
+    document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+    document.getElementById('view-'+v).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    if (v === 'list') renderList();
+    if (v === 'admin') renderAdminList();
+  }
+
+  function goToday() { currentDate = new Date(); renderCalendar(); }
+  function changeMonth(d) { currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + d, 1); renderCalendar(); }
+
+  function renderCalendar() {
+    const y = currentDate.getFullYear(), m = currentDate.getMonth();
+    document.getElementById('cal-month-label').textContent = MONTHS_AR[m] + ' ' + y;
+    const grid = document.getElementById('cal-grid');
+    grid.innerHTML = '';
+    DAYS_AR.forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'cal-day-name';
+      el.textContent = d;
+      grid.appendChild(el);
+    });
+    const first = new Date(y, m, 1).getDay();
+    const days = new Date(y, m+1, 0).getDate();
+    const today = new Date();
+    for (let i = 0; i < first; i++) {
+      const el = document.createElement('div'); el.className = 'cal-day empty'; grid.appendChild(el);
+    }
+    for (let d = 1; d <= days; d++) {
+      const dateStr = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const dayEvs = events.filter(e => e.date === dateStr);
+      const isToday = today.getFullYear()===y && today.getMonth()===m && today.getDate()===d;
+      const el = document.createElement('div');
+      el.className = 'cal-day' + (dayEvs.length ? ' has-event' : '') + (isToday ? ' today' : '');
+      const numEl = document.createElement('div');
+      numEl.className = 'day-num';
+      numEl.textContent = d;
+      el.appendChild(numEl);
+      dayEvs.slice(0,2).forEach(ev => {
+        const dot = document.createElement('div');
+        dot.className = 'event-dot';
+        dot.style.background = TYPE_COLORS[ev.type] || '#1a6e3c';
+        dot.textContent = ev.title;
+        el.appendChild(dot);
+      });
+      if (dayEvs.length > 2) {
+        const more = document.createElement('div');
+        more.className = 'event-dot';
+        more.style.background = '#888';
+        more.textContent = '+' + (dayEvs.length - 2) + ' أخرى';
+        el.appendChild(more);
+      }
+      if (dayEvs.length) {
+        el.onclick = () => dayEvs.length === 1 ? showEvent(dayEvs[0]) : showDayEvents(dateStr, dayEvs);
+      }
+      grid.appendChild(el);
+    }
+  }
+
+  function showEvent(ev) {
+    document.getElementById('modal-title').textContent = ev.title;
+    let html = '';
+    if (ev.image) html += `<img src="${ev.image}" alt="صورة الحدث">`;
+    html += `<span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'}">${TYPE_LABELS[ev.type]||ev.type}</span>`;
+    html += `<div class="ev-detail"><span>📅</span><span>${formatDate(ev.date)}</span></div>`;
+    if (ev.location) html += `<div class="ev-detail"><span>📍</span><span>${ev.location}</span></div>`;
+    if (ev.description) html += `<div class="ev-desc">${ev.description}</div>`;
+    document.getElementById('modal-body').innerHTML = html;
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function showDayEvents(dateStr, dayEvs) {
+    document.getElementById('modal-title').textContent = 'أحداث ' + formatDate(dateStr);
+    let html = dayEvs.map(ev => `
+      <div class="ev-card" onclick="closeModal();setTimeout(()=>showEventById('${ev.id}'),200)">
+        <div class="ev-card-top">
+          <span class="ev-card-title">${ev.title}</span>
+          <span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'};font-size:11px;padding:2px 8px;">${TYPE_LABELS[ev.type]||ev.type}</span>
+        </div>
+        ${ev.location ? `<div class="ev-card-loc">📍 ${ev.location}</div>` : ''}
+      </div>`).join('');
+    document.getElementById('modal-body').innerHTML = html;
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function closeModal() { document.getElementById('modal').style.display = 'none'; }
+  function showEventById(id) { const ev = events.find(e => e.id === id); if (ev) showEvent(ev); }
+
+  function formatDate(d) {
+    const [y, m, day] = d.split('-');
+    return `${parseInt(day)} ${MONTHS_AR[parseInt(m)-1]} ${y}`;
+  }
+
+  function renderList() {
+    const nav = document.getElementById('list-month-nav');
+    nav.innerHTML = '';
+    const now = new Date();
+    if (!listMonth) listMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    [-1, 0, 1].forEach(offset => {
+      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      const ms = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      const chip = document.createElement('button');
+      chip.className = 'month-chip' + (listMonth === ms ? ' active' : '');
+      chip.textContent = MONTHS_AR[d.getMonth()] + ' ' + d.getFullYear();
+      chip.onclick = () => { listMonth = ms; renderList(); };
+      nav.appendChild(chip);
+    });
+    const fr = document.getElementById('filter-row');
+    fr.innerHTML = '';
+    ['all', ...Object.keys(TYPE_LABELS)].forEach(t => {
+      const b = document.createElement('button');
+      b.className = 'filter-btn' + (listFilter === t ? ' active' : '');
+      b.textContent = t === 'all' ? 'الكل' : TYPE_LABELS[t];
+      b.onclick = () => { listFilter = t; renderList(); };
+      fr.appendChild(b);
+    });
+    let filtered = events.filter(e => e.date.startsWith(listMonth));
+    if (listFilter !== 'all') filtered = filtered.filter(e => e.type === listFilter);
+    filtered.sort((a, b) => a.date.localeCompare(b.date));
+    const list = document.getElementById('events-list');
+    if (!filtered.length) { list.innerHTML = '<div class="empty-msg">لا توجد أحداث في هذا الشهر</div>'; return; }
+    list.innerHTML = filtered.map(ev => `
+      <div class="ev-card" onclick="showEventById('${ev.id}')">
+        <div class="ev-card-top">
+          <div>
+            <div class="ev-card-title">${ev.title}</div>
+            <div class="ev-card-date">${formatDate(ev.date)}</div>
+          </div>
+          <span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'};font-size:12px;padding:3px 10px;">${TYPE_LABELS[ev.type]||ev.type}</span>
+        </div>
+        ${ev.location ? `<div class="ev-card-loc">📍 ${ev.location}</div>` : ''}
+      </div>`).join('');
+  }
+
+  function adminLogin() {
+    if (document.getElementById('admin-pass').value === ADMIN_PASS) {
+      document.getElementById('admin-login').style.display = 'none';
+      document.getElementById('admin-panel').style.display = 'block';
+      renderAdminList();
+    } else {
+      document.getElementById('login-err').style.display = 'block';
+    }
+  }
+
+  function adminLogout() {
+    document.getElementById('admin-login').style.display = 'block';
+    document.getElementById('admin-panel').style.display = 'none';
+    document.getElementById('admin-pass').value = '';
+  }
+
+  function previewImg(input) {
+    const preview = document.getElementById('img-preview');
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function saveEvent() {
+    const title = document.getElementById('ev-title').value.trim();
+    const type = document.getElementById('ev-type').value;
+    const date = document.getElementById('ev-date').value;
+    const location = document.getElementById('ev-location').value.trim();
+    const desc = document.getElementById('ev-desc').value.trim();
+    const editId = document.getElementById('ev-id').value;
+    if (!title || !date) { alert('يرجى إدخال العنوان والتاريخ'); return; }
+    const imgFile = document.getElementById('ev-image').files[0];
+    if (imgFile) {
+      const reader = new FileReader();
+      reader.onload = e => { finishSave(title, type, date, location, desc, editId, e.target.result); };
+      reader.readAsDataURL(imgFile);
+    } else {
+      const existing = editId ? (events.find(e => e.id === editId)||{}).image || '' : '';
+      finishSave(title, type, date, location, desc, editId, existing);
+    }
+  }
+
+  function finishSave(title, type, date, location, desc, editId, imgData) {
+    if (editId) {
+      const idx = events.findIndex(e => e.id === editId);
+      if (idx > -1) events[idx] = { ...events[idx], title, type, date, location, description: desc, image: imgData };
+    } else {
+      events.push({ id: Date.now().toString(), title, type, date, location, description: desc, image: imgData });
+    }
+    saveEvents();
+    clearForm();
+    renderCalendar();
+    renderAdminList();
+  }
+
+  function clearForm() {
+    ['ev-title','ev-date','ev-location','ev-desc','ev-id'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('ev-type').value = 'wedding';
+    document.getElementById('ev-image').value = '';
+    document.getElementById('img-preview').style.display = 'none';
+    document.getElementById('form-heading').textContent = 'إضافة حدث جديد';
+    document.getElementById('cancel-edit-btn').style.display = 'none';
+  }
+
+  function cancelEdit() { clearForm(); }
+
+  function editEvent(id) {
+    const ev = events.find(e => e.id === id); if (!ev) return;
+    document.getElementById('ev-title').value = ev.title;
+    document.getElementById('ev-type').value = ev.type;
+    document.getElementById('ev-date').value = ev.date;
+    document.getElementById('ev-location').value = ev.location || '';
+    document.getElementById('ev-desc').value = ev.description || '';
+    document.getElementById('ev-id').value = ev.id;
+    if (ev.image) { document.getElementById('img-preview').src = ev.image; document.getElementById('img-preview').style.display = 'block'; }
+    document.getElementById('form-heading').textContent = 'تعديل الحدث';
+    document.getElementById('cancel-edit-btn').style.display = 'block';
+    window.scrollTo(0, 0);
+  }
+
+  function deleteEvent(id) {
+    if (!confirm('هل أنت متأكد من حذف هذا الحدث؟')) return;
+    events = events.filter(e => e.id !== id);
+    saveEvents();
+    renderCalendar();
+    renderAdminList();
+  }
+
+  function renderAdminList() {
+    const container = document.getElementById('admin-ev-list');
+    if (!container) return;
+    const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
+    if (!sorted.length) { container.innerHTML = '<div class="empty-msg">لا توجد أحداث مسجلة بعد</div>'; return; }
+    container.innerHTML = sorted.map(ev => `
+      <div class="admin-ev-item">
+        <div class="admin-ev-info">
+          ${ev.title}
+          <span>${formatDate(ev.date)}${ev.location ? ' · ' + ev.location : ''} · <span style="color:${TYPE_COLORS[ev.type]}">${TYPE_LABELS[ev.type]||ev.type}</span></span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-danger" style="background:#2980b9;" onclick="editEvent('${ev.id}')">تعديل</button>
+          <button class="btn-danger" onclick="deleteEvent('${ev.id}')">حذف</button>
+        </div>
+      </div>`).join('');
+  }
+
+  loadEvents();
+</script>
+</body>
+</html>
