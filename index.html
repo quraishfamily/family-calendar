@@ -79,6 +79,7 @@
   .logout-btn { font-size: 12px; color: #c0392b; border: none; background: none; cursor: pointer; padding: 6px 0; font-family: inherit; }
   .form-card { background: #fff; border: 0.5px solid #e0e0d8; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
   .form-heading { font-size: 15px; font-weight: 500; color: #111; margin-bottom: 12px; }
+  .loading { text-align: center; padding: 40px; color: #666; font-size: 14px; }
 
   @media (max-width: 600px) {
     .cal-day { min-height: 48px; }
@@ -98,7 +99,6 @@
   </div>
 </div>
 
-<!-- CALENDAR VIEW -->
 <div id="view-calendar" class="view active">
   <div class="cal-header">
     <div class="cal-nav">
@@ -108,17 +108,16 @@
     <div class="cal-month" id="cal-month-label"></div>
     <button class="nav-btn" onclick="goToday()">اليوم</button>
   </div>
+  <div id="cal-loading" class="loading">جاري تحميل الأحداث...</div>
   <div class="cal-grid" id="cal-grid"></div>
 </div>
 
-<!-- LIST VIEW -->
 <div id="view-list" class="view">
   <div class="month-nav-row" id="list-month-nav"></div>
   <div class="filter-row" id="filter-row"></div>
   <div class="events-list" id="events-list"></div>
 </div>
 
-<!-- ADMIN VIEW -->
 <div id="view-admin" class="view">
   <div class="admin-login" id="admin-login">
     <h2>دخول المشرف</h2>
@@ -154,7 +153,7 @@
       <input type="file" id="ev-image" accept="image/*" onchange="previewImg(this)">
       <img id="img-preview" class="img-preview">
       <input type="hidden" id="ev-id">
-      <button class="btn-primary" onclick="saveEvent()">حفظ الحدث</button>
+      <button class="btn-primary" id="save-btn" onclick="saveEvent()">حفظ الحدث</button>
       <button class="btn-primary" id="cancel-edit-btn" onclick="cancelEdit()" style="display:none;background:#888;margin-top:6px;">إلغاء التعديل</button>
     </div>
     <div class="section-title">الأحداث المسجلة</div>
@@ -162,7 +161,6 @@
   </div>
 </div>
 
-<!-- EVENT DETAIL MODAL -->
 <div class="modal-overlay" id="modal" style="display:none;" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-header">
@@ -175,6 +173,10 @@
 
 <script>
   const ADMIN_PASS = "family2025";
+  const API_KEY = "$2a$10$De.l/NZxp/F7duSmfLPAk.c1h62hKjJsLLHtwZi6JzZFerPEoYpCC";
+  const BIN_NAME = "family-calendar-events";
+  let BIN_ID = localStorage.getItem('jsonbin-id') || null;
+
   const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
   const DAYS_AR = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
   const TYPE_LABELS = {wedding:"زواج",visit:"زيارة مريض",birth:"مولود",general:"مناسبة عامة",death:"وفاة"};
@@ -185,17 +187,46 @@
   let listFilter = 'all';
   let listMonth = null;
 
-  function loadEvents() {
+  async function loadEvents() {
+    document.getElementById('cal-loading').style.display = 'block';
     try {
-      const saved = localStorage.getItem('family-calendar-events');
-      if (saved) events = JSON.parse(saved);
+      if (!BIN_ID) {
+        await createBin();
+      } else {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+          headers: { 'X-Master-Key': API_KEY }
+        });
+        const data = await res.json();
+        events = data.record.events || [];
+      }
     } catch(e) { events = []; }
+    document.getElementById('cal-loading').style.display = 'none';
     renderCalendar();
-    renderList();
   }
 
-  function saveEvents() {
-    try { localStorage.setItem('family-calendar-events', JSON.stringify(events)); } catch(e){}
+  async function createBin() {
+    try {
+      const res = await fetch('https://api.jsonbin.io/v3/b', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY, 'X-Bin-Name': BIN_NAME },
+        body: JSON.stringify({ events: [] })
+      });
+      const data = await res.json();
+      BIN_ID = data.metadata.id;
+      localStorage.setItem('jsonbin-id', BIN_ID);
+      events = [];
+    } catch(e) { events = []; }
+  }
+
+  async function saveToCloud() {
+    if (!BIN_ID) await createBin();
+    try {
+      await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+        body: JSON.stringify({ events })
+      });
+    } catch(e) { alert('حدث خطأ في الحفظ، تحقق من اتصالك بالإنترنت'); }
   }
 
   function showView(v, btn) {
@@ -215,45 +246,21 @@
     document.getElementById('cal-month-label').textContent = MONTHS_AR[m] + ' ' + y;
     const grid = document.getElementById('cal-grid');
     grid.innerHTML = '';
-    DAYS_AR.forEach(d => {
-      const el = document.createElement('div');
-      el.className = 'cal-day-name';
-      el.textContent = d;
-      grid.appendChild(el);
-    });
+    DAYS_AR.forEach(d => { const el = document.createElement('div'); el.className = 'cal-day-name'; el.textContent = d; grid.appendChild(el); });
     const first = new Date(y, m, 1).getDay();
     const days = new Date(y, m+1, 0).getDate();
     const today = new Date();
-    for (let i = 0; i < first; i++) {
-      const el = document.createElement('div'); el.className = 'cal-day empty'; grid.appendChild(el);
-    }
+    for (let i = 0; i < first; i++) { const el = document.createElement('div'); el.className = 'cal-day empty'; grid.appendChild(el); }
     for (let d = 1; d <= days; d++) {
       const dateStr = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
       const dayEvs = events.filter(e => e.date === dateStr);
       const isToday = today.getFullYear()===y && today.getMonth()===m && today.getDate()===d;
       const el = document.createElement('div');
       el.className = 'cal-day' + (dayEvs.length ? ' has-event' : '') + (isToday ? ' today' : '');
-      const numEl = document.createElement('div');
-      numEl.className = 'day-num';
-      numEl.textContent = d;
-      el.appendChild(numEl);
-      dayEvs.slice(0,2).forEach(ev => {
-        const dot = document.createElement('div');
-        dot.className = 'event-dot';
-        dot.style.background = TYPE_COLORS[ev.type] || '#1a6e3c';
-        dot.textContent = ev.title;
-        el.appendChild(dot);
-      });
-      if (dayEvs.length > 2) {
-        const more = document.createElement('div');
-        more.className = 'event-dot';
-        more.style.background = '#888';
-        more.textContent = '+' + (dayEvs.length - 2) + ' أخرى';
-        el.appendChild(more);
-      }
-      if (dayEvs.length) {
-        el.onclick = () => dayEvs.length === 1 ? showEvent(dayEvs[0]) : showDayEvents(dateStr, dayEvs);
-      }
+      const numEl = document.createElement('div'); numEl.className = 'day-num'; numEl.textContent = d; el.appendChild(numEl);
+      dayEvs.slice(0,2).forEach(ev => { const dot = document.createElement('div'); dot.className = 'event-dot'; dot.style.background = TYPE_COLORS[ev.type]||'#1a6e3c'; dot.textContent = ev.title; el.appendChild(dot); });
+      if (dayEvs.length > 2) { const more = document.createElement('div'); more.className = 'event-dot'; more.style.background = '#888'; more.textContent = '+'+(dayEvs.length-2)+' أخرى'; el.appendChild(more); }
+      if (dayEvs.length) el.onclick = () => dayEvs.length === 1 ? showEvent(dayEvs[0]) : showDayEvents(dateStr, dayEvs);
       grid.appendChild(el);
     }
   }
@@ -272,65 +279,42 @@
 
   function showDayEvents(dateStr, dayEvs) {
     document.getElementById('modal-title').textContent = 'أحداث ' + formatDate(dateStr);
-    let html = dayEvs.map(ev => `
-      <div class="ev-card" onclick="closeModal();setTimeout(()=>showEventById('${ev.id}'),200)">
-        <div class="ev-card-top">
-          <span class="ev-card-title">${ev.title}</span>
-          <span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'};font-size:11px;padding:2px 8px;">${TYPE_LABELS[ev.type]||ev.type}</span>
-        </div>
-        ${ev.location ? `<div class="ev-card-loc">📍 ${ev.location}</div>` : ''}
-      </div>`).join('');
+    let html = dayEvs.map(ev => `<div class="ev-card" onclick="closeModal();setTimeout(()=>showEventById('${ev.id}'),200)"><div class="ev-card-top"><span class="ev-card-title">${ev.title}</span><span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'};font-size:11px;padding:2px 8px;">${TYPE_LABELS[ev.type]||ev.type}</span></div>${ev.location?`<div class="ev-card-loc">📍 ${ev.location}</div>`:''}</div>`).join('');
     document.getElementById('modal-body').innerHTML = html;
     document.getElementById('modal').style.display = 'flex';
   }
 
   function closeModal() { document.getElementById('modal').style.display = 'none'; }
   function showEventById(id) { const ev = events.find(e => e.id === id); if (ev) showEvent(ev); }
-
-  function formatDate(d) {
-    const [y, m, day] = d.split('-');
-    return `${parseInt(day)} ${MONTHS_AR[parseInt(m)-1]} ${y}`;
-  }
+  function formatDate(d) { const [y,m,day] = d.split('-'); return `${parseInt(day)} ${MONTHS_AR[parseInt(m)-1]} ${y}`; }
 
   function renderList() {
-    const nav = document.getElementById('list-month-nav');
-    nav.innerHTML = '';
+    const nav = document.getElementById('list-month-nav'); nav.innerHTML = '';
     const now = new Date();
     if (!listMonth) listMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-    [-1, 0, 1].forEach(offset => {
-      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    [-1,0,1].forEach(offset => {
+      const d = new Date(now.getFullYear(), now.getMonth()+offset, 1);
       const ms = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
       const chip = document.createElement('button');
-      chip.className = 'month-chip' + (listMonth === ms ? ' active' : '');
-      chip.textContent = MONTHS_AR[d.getMonth()] + ' ' + d.getFullYear();
+      chip.className = 'month-chip'+(listMonth===ms?' active':'');
+      chip.textContent = MONTHS_AR[d.getMonth()]+' '+d.getFullYear();
       chip.onclick = () => { listMonth = ms; renderList(); };
       nav.appendChild(chip);
     });
-    const fr = document.getElementById('filter-row');
-    fr.innerHTML = '';
-    ['all', ...Object.keys(TYPE_LABELS)].forEach(t => {
+    const fr = document.getElementById('filter-row'); fr.innerHTML = '';
+    ['all',...Object.keys(TYPE_LABELS)].forEach(t => {
       const b = document.createElement('button');
-      b.className = 'filter-btn' + (listFilter === t ? ' active' : '');
-      b.textContent = t === 'all' ? 'الكل' : TYPE_LABELS[t];
+      b.className = 'filter-btn'+(listFilter===t?' active':'');
+      b.textContent = t==='all'?'الكل':TYPE_LABELS[t];
       b.onclick = () => { listFilter = t; renderList(); };
       fr.appendChild(b);
     });
     let filtered = events.filter(e => e.date.startsWith(listMonth));
     if (listFilter !== 'all') filtered = filtered.filter(e => e.type === listFilter);
-    filtered.sort((a, b) => a.date.localeCompare(b.date));
+    filtered.sort((a,b) => a.date.localeCompare(b.date));
     const list = document.getElementById('events-list');
     if (!filtered.length) { list.innerHTML = '<div class="empty-msg">لا توجد أحداث في هذا الشهر</div>'; return; }
-    list.innerHTML = filtered.map(ev => `
-      <div class="ev-card" onclick="showEventById('${ev.id}')">
-        <div class="ev-card-top">
-          <div>
-            <div class="ev-card-title">${ev.title}</div>
-            <div class="ev-card-date">${formatDate(ev.date)}</div>
-          </div>
-          <span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'};font-size:12px;padding:3px 10px;">${TYPE_LABELS[ev.type]||ev.type}</span>
-        </div>
-        ${ev.location ? `<div class="ev-card-loc">📍 ${ev.location}</div>` : ''}
-      </div>`).join('');
+    list.innerHTML = filtered.map(ev => `<div class="ev-card" onclick="showEventById('${ev.id}')"><div class="ev-card-top"><div><div class="ev-card-title">${ev.title}</div><div class="ev-card-date">${formatDate(ev.date)}</div></div><span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'};font-size:12px;padding:3px 10px;">${TYPE_LABELS[ev.type]||ev.type}</span></div>${ev.location?`<div class="ev-card-loc">📍 ${ev.location}</div>`:''}</div>`).join('');
   }
 
   function adminLogin() {
@@ -338,9 +322,7 @@
       document.getElementById('admin-login').style.display = 'none';
       document.getElementById('admin-panel').style.display = 'block';
       renderAdminList();
-    } else {
-      document.getElementById('login-err').style.display = 'block';
-    }
+    } else { document.getElementById('login-err').style.display = 'block'; }
   }
 
   function adminLogout() {
@@ -369,22 +351,26 @@
     const imgFile = document.getElementById('ev-image').files[0];
     if (imgFile) {
       const reader = new FileReader();
-      reader.onload = e => { finishSave(title, type, date, location, desc, editId, e.target.result); };
+      reader.onload = e => finishSave(title, type, date, location, desc, editId, e.target.result);
       reader.readAsDataURL(imgFile);
     } else {
-      const existing = editId ? (events.find(e => e.id === editId)||{}).image || '' : '';
+      const existing = editId ? (events.find(e => e.id===editId)||{}).image||'' : '';
       finishSave(title, type, date, location, desc, editId, existing);
     }
   }
 
-  function finishSave(title, type, date, location, desc, editId, imgData) {
+  async function finishSave(title, type, date, location, desc, editId, imgData) {
+    document.getElementById('save-btn').textContent = 'جاري الحفظ...';
+    document.getElementById('save-btn').disabled = true;
     if (editId) {
-      const idx = events.findIndex(e => e.id === editId);
-      if (idx > -1) events[idx] = { ...events[idx], title, type, date, location, description: desc, image: imgData };
+      const idx = events.findIndex(e => e.id===editId);
+      if (idx > -1) events[idx] = {...events[idx], title, type, date, location, description:desc, image:imgData};
     } else {
-      events.push({ id: Date.now().toString(), title, type, date, location, description: desc, image: imgData });
+      events.push({ id: Date.now().toString(), title, type, date, location, description:desc, image:imgData });
     }
-    saveEvents();
+    await saveToCloud();
+    document.getElementById('save-btn').textContent = 'حفظ الحدث';
+    document.getElementById('save-btn').disabled = false;
     clearForm();
     renderCalendar();
     renderAdminList();
@@ -402,43 +388,32 @@
   function cancelEdit() { clearForm(); }
 
   function editEvent(id) {
-    const ev = events.find(e => e.id === id); if (!ev) return;
+    const ev = events.find(e => e.id===id); if (!ev) return;
     document.getElementById('ev-title').value = ev.title;
     document.getElementById('ev-type').value = ev.type;
     document.getElementById('ev-date').value = ev.date;
-    document.getElementById('ev-location').value = ev.location || '';
-    document.getElementById('ev-desc').value = ev.description || '';
+    document.getElementById('ev-location').value = ev.location||'';
+    document.getElementById('ev-desc').value = ev.description||'';
     document.getElementById('ev-id').value = ev.id;
     if (ev.image) { document.getElementById('img-preview').src = ev.image; document.getElementById('img-preview').style.display = 'block'; }
     document.getElementById('form-heading').textContent = 'تعديل الحدث';
     document.getElementById('cancel-edit-btn').style.display = 'block';
-    window.scrollTo(0, 0);
+    window.scrollTo(0,0);
   }
 
-  function deleteEvent(id) {
+  async function deleteEvent(id) {
     if (!confirm('هل أنت متأكد من حذف هذا الحدث؟')) return;
     events = events.filter(e => e.id !== id);
-    saveEvents();
+    await saveToCloud();
     renderCalendar();
     renderAdminList();
   }
 
   function renderAdminList() {
-    const container = document.getElementById('admin-ev-list');
-    if (!container) return;
-    const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
+    const container = document.getElementById('admin-ev-list'); if (!container) return;
+    const sorted = [...events].sort((a,b) => a.date.localeCompare(b.date));
     if (!sorted.length) { container.innerHTML = '<div class="empty-msg">لا توجد أحداث مسجلة بعد</div>'; return; }
-    container.innerHTML = sorted.map(ev => `
-      <div class="admin-ev-item">
-        <div class="admin-ev-info">
-          ${ev.title}
-          <span>${formatDate(ev.date)}${ev.location ? ' · ' + ev.location : ''} · <span style="color:${TYPE_COLORS[ev.type]}">${TYPE_LABELS[ev.type]||ev.type}</span></span>
-        </div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn-danger" style="background:#2980b9;" onclick="editEvent('${ev.id}')">تعديل</button>
-          <button class="btn-danger" onclick="deleteEvent('${ev.id}')">حذف</button>
-        </div>
-      </div>`).join('');
+    container.innerHTML = sorted.map(ev => `<div class="admin-ev-item"><div class="admin-ev-info">${ev.title}<span>${formatDate(ev.date)}${ev.location?' · '+ev.location:''} · <span style="color:${TYPE_COLORS[ev.type]}">${TYPE_LABELS[ev.type]||ev.type}</span></span></div><div style="display:flex;gap:6px;"><button class="btn-danger" style="background:#2980b9;" onclick="editEvent('${ev.id}')">تعديل</button><button class="btn-danger" onclick="deleteEvent('${ev.id}')">حذف</button></div></div>`).join('');
   }
 
   loadEvents();
