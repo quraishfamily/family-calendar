@@ -167,6 +167,17 @@
   </div>
 </div>
 
+<!-- UPCOMING POPUP -->
+<div class="modal-overlay" id="popup" style="display:none;" onclick="if(event.target===this)closePopup()">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">🗓️ مناسبات الـ 30 يوم القادمة</span>
+      <button class="modal-close" onclick="closePopup()">✕</button>
+    </div>
+    <div class="modal-body" id="popup-body"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal" style="display:none;" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-header">
@@ -179,7 +190,7 @@
 
 <script>
   const ADMIN_PASS = "family2025";
-  const API_KEY = "$2a$10$ZOnNA60/xCz9Kl.gcE0UwuCMpJtg5yOwqKmAlr4MB3eaDspLXAeXi";
+  const API_KEY = "$2a$10$ERLaqZwq5pFQ9/uJYyvhIeoRQU9lGm4plJW0gpkNWHbBNCwvigR4.";
   let BIN_ID = "69ee66c0856a68218975df49";
 
   const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
@@ -204,6 +215,7 @@
     } catch(e) { events = []; }
     document.getElementById('cal-loading').style.display = 'none';
     renderCalendar();
+    setTimeout(showPopup, 2000);
   }
 
   async function saveToCloud() {
@@ -288,6 +300,34 @@
       </div>`).join('');
     document.getElementById('modal-body').innerHTML = html;
     document.getElementById('modal').style.display = 'flex';
+  }
+
+  function closePopup() { document.getElementById('popup').style.display='none'; }
+
+  function showPopup() {
+    const now = new Date(); now.setHours(0,0,0,0);
+    const later = new Date(now); later.setDate(later.getDate()+30);
+    const upcoming = events.filter(e => {
+      const d = new Date(e.date); return d >= now && d <= later;
+    }).sort((a,b) => a.date.localeCompare(b.date));
+    if (!upcoming.length) return;
+    const body = document.getElementById('popup-body');
+    body.innerHTML = upcoming.map(ev => {
+      const d = new Date(ev.date); d.setHours(0,0,0,0);
+      const diff = Math.round((d-now)/(1000*60*60*24));
+      const when = diff===0 ? '<span style="color:#c0392b;font-weight:500;">اليوم</span>'
+                 : diff===1 ? '<span style="color:#e67e22;font-weight:500;">غداً</span>'
+                 : `<span style="color:#666;">خلال ${diff} يوم</span>`;
+      return `<div onclick="closePopup();setTimeout(()=>showEventById('${ev.id}'),200)" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid #f0f0e8;cursor:pointer;">
+        <div style="width:36px;height:36px;border-radius:50%;background:${TYPE_COLORS[ev.type]||'#1a6e3c'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${TYPE_EMOJI[ev.type]||'📌'}</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:500;color:#111;">${ev.title}</div>
+          <div style="font-size:12px;color:#666;margin-top:2px;">${formatDate(ev.date)}${ev.location?' · '+ev.location:''}</div>
+        </div>
+        <div style="font-size:12px;text-align:center;">${when}</div>
+      </div>`;
+    }).join('');
+    document.getElementById('popup').style.display='flex';
   }
 
   function closeModal() { document.getElementById('modal').style.display='none'; }
