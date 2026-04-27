@@ -317,7 +317,22 @@
     const preview = document.getElementById('img-preview');
     if (input.files && input.files[0]) {
       const reader = new FileReader();
-      reader.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX = 600;
+          let w = img.width, h = img.height;
+          if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+          else { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const compressed = canvas.toDataURL('image/jpeg', 0.6);
+          preview.src = compressed; preview.style.display = 'block';
+          input._compressed = compressed;
+        };
+        img.src = e.target.result;
+      };
       reader.readAsDataURL(input.files[0]);
     }
   }
@@ -331,11 +346,13 @@
     const editId = document.getElementById('ev-id').value;
     if (!title || !date) { alert('يرجى إدخال العنوان والتاريخ'); return; }
     const imgFile = document.getElementById('ev-image').files[0];
-    if (imgFile) {
+    if (imgFile && imgFile._compressed) {
+      finishSave(title, type, date, location, desc, editId, document.getElementById('ev-image')._compressed);
+    } else if (imgFile) {
       const reader = new FileReader();
       reader.onload = e => finishSave(title, type, date, location, desc, editId, e.target.result);
       reader.readAsDataURL(imgFile);
-    } else {
+    } else if (!imgFile) {
       const existing = editId ? (events.find(e => e.id===editId)||{}).image||'' : '';
       finishSave(title, type, date, location, desc, editId, existing);
     }
