@@ -173,8 +173,7 @@
 
 <script>
   const ADMIN_PASS = "family2025";
-  const API_KEY = "$2a$10$ERLaqZwq5pFQ9/uJYyvhIeoRQU9lGm4plJW0gpkNWHbBNCwvigR4.";
-  const BIN_NAME = "family-calendar-events";
+  const API_KEY = "$2a$10$De.l/NZxp/F7duSmfLPAk.c1h62hKjJsLLHtwZi6JzZFerPEoYpCC";
   let BIN_ID = "69ee66c0856a68218975df49";
 
   const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
@@ -190,36 +189,19 @@
   async function loadEvents() {
     document.getElementById('cal-loading').style.display = 'block';
     try {
-      if (!BIN_ID) {
-        await createBin();
-      } else {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-          headers: { 'X-Master-Key': API_KEY }
-        });
-        const data = await res.json();
-        events = data.record.events || [];
-      }
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+        headers: { 'X-Master-Key': API_KEY }
+      });
+      const data = await res.json();
+      events = data.record.events || [];
     } catch(e) { events = []; }
     document.getElementById('cal-loading').style.display = 'none';
     renderCalendar();
   }
 
-  async function createBin() {
-    try {
-      const res = await fetch('https://api.jsonbin.io/v3/b', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY, 'X-Bin-Name': BIN_NAME },
-        body: JSON.stringify({ events: [] })
-      });
-      const data = await res.json();
-      BIN_ID = data.metadata.id;
-      localStorage.setItem('jsonbin-id', BIN_ID);
-      events = [];
-    } catch(e) { events = []; }
-  }
+
 
   async function saveToCloud() {
-    if (!BIN_ID) await createBin();
     try {
       await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
         method: 'PUT',
