@@ -38,7 +38,7 @@
   .modal-close { width: 28px; height: 28px; border: none; background: #f0f0e8; border-radius: 50%; cursor: pointer; font-size: 14px; color: #111; }
   .modal-body { padding: 16px 20px; }
   .ev-type-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; padding: 4px 12px; border-radius: 20px; color: #fff; margin-bottom: 12px; }
-  .ev-detail { font-size: 14px; color: #555; margin-bottom: 6px; display: flex; gap: 8px; align-items: flex-start; }
+  .ev-detail { font-size: 14px; color: #555; margin-bottom: 6px; display: flex; gap: 8px; }
   .ev-desc { font-size: 14px; color: #111; line-height: 1.6; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid #e0e0d8; }
   .events-list { display: flex; flex-direction: column; gap: 12px; }
   .ev-card { background: #fff; border: 0.5px solid #e0e0d8; border-radius: 12px; padding: 14px 16px; cursor: pointer; }
@@ -83,9 +83,9 @@
 <div class="top-nav">
   <span class="nav-title">تقويم العائلة</span>
   <div class="nav-btns">
-    <button class="nav-btn active" onclick="showView('calendar', this)">التقويم</button>
-    <button class="nav-btn" onclick="showView('list', this)">قائمة الأحداث</button>
-    <button class="nav-btn" onclick="showView('admin', this)">المشرف</button>
+    <button class="nav-btn active" onclick="showView('calendar',this)">التقويم</button>
+    <button class="nav-btn" onclick="showView('list',this)">قائمة الأحداث</button>
+    <button class="nav-btn" onclick="showView('admin',this)">المشرف</button>
   </div>
 </div>
 
@@ -137,12 +137,8 @@
       <div id="visit-option" style="display:none;margin-top:12px;">
         <label>هل هناك زيارة؟</label>
         <div style="display:flex;gap:10px;margin-top:6px;">
-          <label style="display:flex;align-items:center;gap:6px;margin-top:0;cursor:pointer;">
-            <input type="radio" name="visit-type" value="yes" style="width:auto;"> نعم، هناك زيارة
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;margin-top:0;cursor:pointer;">
-            <input type="radio" name="visit-type" value="no" checked style="width:auto;"> بدون زيارة
-          </label>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:0;cursor:pointer;"><input type="radio" name="visit-type" value="yes" style="width:auto;"> نعم، هناك زيارة</label>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:0;cursor:pointer;"><input type="radio" name="visit-type" value="no" checked style="width:auto;"> بدون زيارة</label>
         </div>
       </div>
       <label>التاريخ *</label>
@@ -160,7 +156,7 @@
   </div>
 </div>
 
-<!-- UPCOMING POPUP -->
+<!-- POPUP -->
 <div class="modal-overlay" id="popup" style="display:none;" onclick="if(event.target===this)closePopup()">
   <div class="modal">
     <div class="modal-header">
@@ -182,37 +178,39 @@
 </div>
 
 <script>
-  const ADMIN_PASS = "family2025";
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyKhWiSkvv9RfZ1vdIEHT4dK5SBxGCjvms93-iOf2ylxlqk2w-C0llKe-QLqa8Ela4S/exec";
+  const ADMIN_PASS  = "family2025";
+  const API_KEY     = "$2a$10$tcU7vlClVIWc.hl.CDUt4OKm2WozpH6etiRenUTRP/BvyMcFNhQ1a";
+  const BIN_ID      = "69ee66c0856a68218975df49";
+  const API_URL     = "https://api.jsonbin.io/v3/b/" + BIN_ID;
 
-  const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-  const DAYS_AR   = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
-  const TYPE_LABELS = {wedding:"زواج", visit:"مرض", birth:"مولود", general:"مناسبة عامة", achievement:"إنجاز", death:"وفاة"};
-  const TYPE_EMOJI  = {wedding:"💍", visit:"🏥", birth:"👶", general:"🎉", achievement:"🏆", death:"🕊️"};
-  const TYPE_COLORS = {wedding:"#c0392b", visit:"#2980b9", birth:"#8e44ad", general:"#16a085", achievement:"#e67e22", death:"#7f8c8d"};
+  const MONTHS_AR   = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+  const DAYS_AR     = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+  const TYPE_LABELS = {wedding:"زواج",visit:"مرض",birth:"مولود",general:"مناسبة عامة",achievement:"إنجاز",death:"وفاة"};
+  const TYPE_EMOJI  = {wedding:"💍",visit:"🏥",birth:"👶",general:"🎉",achievement:"🏆",death:"🕊️"};
+  const TYPE_COLORS = {wedding:"#c0392b",visit:"#2980b9",birth:"#8e44ad",general:"#16a085",achievement:"#e67e22",death:"#7f8c8d"};
 
-  let currentDate = new Date();
-  let events = [];
-  let listFilter = 'all';
-  let listMonth = null;
+  let currentDate = new Date(), events = [], listFilter = 'all', listMonth = null;
 
   async function loadEvents() {
     document.getElementById('cal-loading').style.display = 'block';
     try {
-      const res = await fetch(SCRIPT_URL);
+      const res  = await fetch(API_URL + "/latest", { headers: { 'X-Master-Key': API_KEY } });
       const data = await res.json();
-      events = data.events || [];
+      events = data.record.events || [];
     } catch(e) { events = []; }
     document.getElementById('cal-loading').style.display = 'none';
     renderCalendar();
+    setTimeout(showPopup, 2000);
   }
 
   async function saveToCloud() {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save', events })
-    });
+    try {
+      await fetch(API_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+        body: JSON.stringify({ events })
+      });
+    } catch(e) { alert('حدث خطأ في الحفظ'); }
   }
 
   function showView(v, btn) {
@@ -220,8 +218,8 @@
     document.getElementById('view-'+v).classList.add('active');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
-    if (v === 'list') renderList();
-    if (v === 'admin') renderAdminList();
+    if (v==='list') renderList();
+    if (v==='admin') renderAdminList();
   }
 
   function goToday() { currentDate = new Date(); renderCalendar(); }
@@ -232,47 +230,45 @@
     document.getElementById('cal-month-label').textContent = MONTHS_AR[m]+' '+y;
     const grid = document.getElementById('cal-grid'); grid.innerHTML = '';
     DAYS_AR.forEach(d => { const el=document.createElement('div'); el.className='cal-day-name'; el.textContent=d; grid.appendChild(el); });
-    const first = new Date(y,m,1).getDay(), days = new Date(y,m+1,0).getDate(), today = new Date();
+    const first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate(), today=new Date();
     for (let i=0;i<first;i++) { const el=document.createElement('div'); el.className='cal-day empty'; grid.appendChild(el); }
     for (let d=1;d<=days;d++) {
-      const dateStr = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-      const dayEvs  = events.filter(e=>e.date===dateStr);
-      const isToday = today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d;
-      const el = document.createElement('div');
-      el.className = 'cal-day'+(dayEvs.length?' has-event':'')+(isToday?' today':'');
-      const numEl=document.createElement('div'); numEl.className='day-num'; numEl.textContent=d; el.appendChild(numEl);
-      dayEvs.slice(0,2).forEach(ev=>{
+      const ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const de=events.filter(e=>e.date===ds);
+      const it=today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d;
+      const el=document.createElement('div');
+      el.className='cal-day'+(de.length?' has-event':'')+(it?' today':'');
+      const ne=document.createElement('div'); ne.className='day-num'; ne.textContent=d; el.appendChild(ne);
+      de.slice(0,2).forEach(ev=>{
         const dot=document.createElement('div'); dot.className='event-dot';
         dot.style.background=TYPE_COLORS[ev.type]||'#1a6e3c';
         dot.innerHTML=`<span>${TYPE_EMOJI[ev.type]||'📌'}</span><span class="ev-label">${ev.title}</span>`;
         el.appendChild(dot);
       });
-      if (dayEvs.length>2) { const more=document.createElement('div'); more.className='event-dot'; more.style.background='#888'; more.textContent='+'+(dayEvs.length-2)+' أخرى'; el.appendChild(more); }
-      if (dayEvs.length) el.onclick=()=>dayEvs.length===1?showEvent(dayEvs[0]):showDayEvents(dateStr,dayEvs);
+      if (de.length>2) { const more=document.createElement('div'); more.className='event-dot'; more.style.background='#888'; more.textContent='+'+(de.length-2)+' أخرى'; el.appendChild(more); }
+      if (de.length) el.onclick=()=>de.length===1?showEvent(de[0]):showDayEvents(ds,de);
       grid.appendChild(el);
     }
   }
 
   function showEvent(ev) {
-    document.getElementById('modal-title').textContent = (TYPE_EMOJI[ev.type]||'')+' '+ev.title;
-    let html = `<span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'}">${TYPE_EMOJI[ev.type]||''} ${TYPE_LABELS[ev.type]||ev.type}</span>`;
-    html += `<div class="ev-detail"><span>📅</span><span>${formatDate(ev.date)}</span></div>`;
-    if (ev.location) html += `<div class="ev-detail"><span>📍</span><span>${ev.location}</span></div>`;
-    if (ev.type==='visit' && ev.visitOption) {
-      const vt = ev.visitOption==='yes'?'✅ هناك زيارة للمريض':'❌ بدون زيارة حالياً';
-      const vc = ev.visitOption==='yes'?'#16a085':'#c0392b';
-      html += `<div class="ev-detail"><span>🏥</span><span style="color:${vc};font-weight:500;">${vt}</span></div>`;
+    document.getElementById('modal-title').textContent=(TYPE_EMOJI[ev.type]||'')+' '+ev.title;
+    let h=`<span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'}">${TYPE_EMOJI[ev.type]||''} ${TYPE_LABELS[ev.type]||ev.type}</span>`;
+    h+=`<div class="ev-detail"><span>📅</span><span>${formatDate(ev.date)}</span></div>`;
+    if (ev.location) h+=`<div class="ev-detail"><span>📍</span><span>${ev.location}</span></div>`;
+    if (ev.type==='visit'&&ev.visitOption) {
+      const vt=ev.visitOption==='yes'?'✅ هناك زيارة للمريض':'❌ بدون زيارة حالياً';
+      h+=`<div class="ev-detail"><span>🏥</span><span style="color:${ev.visitOption==='yes'?'#16a085':'#c0392b'};font-weight:500;">${vt}</span></div>`;
     }
-    if (ev.description) html += `<div class="ev-desc">${ev.description}</div>`;
-    document.getElementById('modal-body').innerHTML = html;
-    document.getElementById('modal').style.display = 'flex';
+    if (ev.description) h+=`<div class="ev-desc">${ev.description}</div>`;
+    document.getElementById('modal-body').innerHTML=h;
+    document.getElementById('modal').style.display='flex';
   }
 
-  function showDayEvents(dateStr, dayEvs) {
-    document.getElementById('modal-title').textContent = 'أحداث '+formatDate(dateStr);
-    let html = dayEvs.map(ev=>`<div class="ev-card" onclick="closeModal();setTimeout(()=>showEventById('${ev.id}'),200)"><div class="ev-card-top"><div><div class="ev-card-title">${TYPE_EMOJI[ev.type]||''} ${ev.title}</div></div><span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'};font-size:11px;padding:2px 8px;">${TYPE_LABELS[ev.type]||ev.type}</span></div>${ev.location?`<div class="ev-card-loc">📍 ${ev.location}</div>`:''}</div>`).join('');
-    document.getElementById('modal-body').innerHTML = html;
-    document.getElementById('modal').style.display = 'flex';
+  function showDayEvents(ds, de) {
+    document.getElementById('modal-title').textContent='أحداث '+formatDate(ds);
+    document.getElementById('modal-body').innerHTML=de.map(ev=>`<div class="ev-card" onclick="closeModal();setTimeout(()=>showEventById('${ev.id}'),200)"><div class="ev-card-top"><div><div class="ev-card-title">${TYPE_EMOJI[ev.type]||''} ${ev.title}</div></div><span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'};font-size:11px;padding:2px 8px;">${TYPE_LABELS[ev.type]||ev.type}</span></div>${ev.location?`<div class="ev-card-loc">📍 ${ev.location}</div>`:''}</div>`).join('');
+    document.getElementById('modal').style.display='flex';
   }
 
   function closeModal() { document.getElementById('modal').style.display='none'; }
@@ -283,51 +279,47 @@
   function showPopup() {
     const now=new Date(); now.setHours(0,0,0,0);
     const later=new Date(now); later.setDate(later.getDate()+30);
-    const upcoming=events.filter(e=>{ const d=new Date(e.date); return d>=now&&d<=later; }).sort((a,b)=>a.date.localeCompare(b.date));
-    if (!upcoming.length) return;
-    document.getElementById('popup-body').innerHTML = upcoming.map(ev=>{
+    const up=events.filter(e=>{ const d=new Date(e.date); return d>=now&&d<=later; }).sort((a,b)=>a.date.localeCompare(b.date));
+    if (!up.length) return;
+    document.getElementById('popup-body').innerHTML=up.map(ev=>{
       const d=new Date(ev.date); d.setHours(0,0,0,0);
       const diff=Math.round((d-now)/(1000*60*60*24));
       const when=diff===0?'<span style="color:#c0392b;font-weight:500;">اليوم</span>':diff===1?'<span style="color:#e67e22;font-weight:500;">غداً</span>':`<span style="color:#666;">خلال ${diff} يوم</span>`;
       return `<div onclick="closePopup();setTimeout(()=>showEventById('${ev.id}'),200)" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid #f0f0e8;cursor:pointer;">
         <div style="width:36px;height:36px;border-radius:50%;background:${TYPE_COLORS[ev.type]||'#1a6e3c'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${TYPE_EMOJI[ev.type]||'📌'}</div>
         <div style="flex:1;"><div style="font-size:14px;font-weight:500;color:#111;">${ev.title}</div><div style="font-size:12px;color:#666;margin-top:2px;">${formatDate(ev.date)}${ev.location?' · '+ev.location:''}</div></div>
-        <div style="font-size:12px;text-align:center;">${when}</div>
+        <div style="font-size:12px;">${when}</div>
       </div>`;
     }).join('');
     document.getElementById('popup').style.display='flex';
   }
 
-  function toggleVisitOption(type) { document.getElementById('visit-option').style.display=type==='visit'?'block':'none'; }
+  function toggleVisitOption(t) { document.getElementById('visit-option').style.display=t==='visit'?'block':'none'; }
   function getVisitValue() { const r=document.querySelector('input[name="visit-type"]:checked'); return r?r.value:'no'; }
 
   function renderList() {
     const nav=document.getElementById('list-month-nav'); nav.innerHTML='';
     const now=new Date();
     if (!listMonth) listMonth=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-    [-1,0,1].forEach(offset=>{
-      const d=new Date(now.getFullYear(),now.getMonth()+offset,1);
+    [-1,0,1].forEach(o=>{
+      const d=new Date(now.getFullYear(),now.getMonth()+o,1);
       const ms=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-      const chip=document.createElement('button');
-      chip.className='month-chip'+(listMonth===ms?' active':'');
-      chip.textContent=MONTHS_AR[d.getMonth()]+' '+d.getFullYear();
-      chip.onclick=()=>{ listMonth=ms; renderList(); };
-      nav.appendChild(chip);
+      const c=document.createElement('button'); c.className='month-chip'+(listMonth===ms?' active':'');
+      c.textContent=MONTHS_AR[d.getMonth()]+' '+d.getFullYear();
+      c.onclick=()=>{ listMonth=ms; renderList(); }; nav.appendChild(c);
     });
     const fr=document.getElementById('filter-row'); fr.innerHTML='';
     ['all',...Object.keys(TYPE_LABELS)].forEach(t=>{
-      const b=document.createElement('button');
-      b.className='filter-btn'+(listFilter===t?' active':'');
+      const b=document.createElement('button'); b.className='filter-btn'+(listFilter===t?' active':'');
       b.textContent=t==='all'?'الكل':(TYPE_EMOJI[t]||'')+' '+TYPE_LABELS[t];
-      b.onclick=()=>{ listFilter=t; renderList(); };
-      fr.appendChild(b);
+      b.onclick=()=>{ listFilter=t; renderList(); }; fr.appendChild(b);
     });
-    let filtered=events.filter(e=>e.date.startsWith(listMonth));
-    if (listFilter!=='all') filtered=filtered.filter(e=>e.type===listFilter);
-    filtered.sort((a,b)=>a.date.localeCompare(b.date));
+    let f=events.filter(e=>e.date.startsWith(listMonth));
+    if (listFilter!=='all') f=f.filter(e=>e.type===listFilter);
+    f.sort((a,b)=>a.date.localeCompare(b.date));
     const list=document.getElementById('events-list');
-    if (!filtered.length) { list.innerHTML='<div class="empty-msg">لا توجد أحداث في هذا الشهر</div>'; return; }
-    list.innerHTML=filtered.map(ev=>`<div class="ev-card" onclick="showEventById('${ev.id}')"><div class="ev-card-top"><div><div class="ev-card-title">${TYPE_EMOJI[ev.type]||''} ${ev.title}</div><div class="ev-card-date">${formatDate(ev.date)}</div></div><span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'};font-size:12px;padding:3px 10px;">${TYPE_LABELS[ev.type]||ev.type}</span></div>${ev.location?`<div class="ev-card-loc">📍 ${ev.location}</div>`:''}</div>`).join('');
+    if (!f.length) { list.innerHTML='<div class="empty-msg">لا توجد أحداث في هذا الشهر</div>'; return; }
+    list.innerHTML=f.map(ev=>`<div class="ev-card" onclick="showEventById('${ev.id}')"><div class="ev-card-top"><div><div class="ev-card-title">${TYPE_EMOJI[ev.type]||''} ${ev.title}</div><div class="ev-card-date">${formatDate(ev.date)}</div></div><span class="ev-type-badge" style="background:${TYPE_COLORS[ev.type]||'#1a6e3c'};font-size:12px;padding:3px 10px;">${TYPE_LABELS[ev.type]||ev.type}</span></div>${ev.location?`<div class="ev-card-loc">📍 ${ev.location}</div>`:''}</div>`).join('');
   }
 
   function adminLogin() {
@@ -335,7 +327,7 @@
       document.getElementById('admin-login').style.display='none';
       document.getElementById('admin-panel').style.display='block';
       renderAdminList();
-    } else { document.getElementById('login-err').style.display='block'; }
+    } else document.getElementById('login-err').style.display='block';
   }
 
   function adminLogout() {
@@ -348,26 +340,20 @@
     const title=document.getElementById('ev-title').value.trim();
     const type=document.getElementById('ev-type').value;
     const date=document.getElementById('ev-date').value;
-    const location=document.getElementById('ev-location').value.trim();
+    const loc=document.getElementById('ev-location').value.trim();
     const desc=document.getElementById('ev-desc').value.trim();
     const editId=document.getElementById('ev-id').value;
-    const visitOpt=type==='visit'?getVisitValue():null;
+    const vo=type==='visit'?getVisitValue():null;
     if (!title||!date) { alert('يرجى إدخال العنوان والتاريخ'); return; }
     document.getElementById('save-btn').textContent='جاري الحفظ...';
     document.getElementById('save-btn').disabled=true;
     if (editId) {
-      const idx=events.findIndex(e=>e.id===editId);
-      if (idx>-1) events[idx]={...events[idx],title,type,date,location,description:desc,visitOption:visitOpt};
+      const i=events.findIndex(e=>e.id===editId);
+      if (i>-1) events[i]={...events[i],title,type,date,location:loc,description:desc,visitOption:vo};
     } else {
-      events.push({id:Date.now().toString(),title,type,date,location,description:desc,visitOption:visitOpt});
+      events.push({id:Date.now().toString(),title,type,date,location:loc,description:desc,visitOption:vo});
     }
     await saveToCloud();
-    // أعد تحميل البيانات للتأكد
-    try {
-      const res=await fetch(SCRIPT_URL+'?t='+Date.now());
-      const data=await res.json();
-      events=data.events||[];
-    } catch(e){}
     document.getElementById('save-btn').textContent='حفظ الحدث';
     document.getElementById('save-btn').disabled=false;
     clearForm(); renderCalendar(); renderAdminList();
@@ -406,10 +392,10 @@
   }
 
   function renderAdminList() {
-    const container=document.getElementById('admin-ev-list'); if(!container) return;
-    const sorted=[...events].sort((a,b)=>a.date.localeCompare(b.date));
-    if (!sorted.length) { container.innerHTML='<div class="empty-msg">لا توجد أحداث مسجلة بعد</div>'; return; }
-    container.innerHTML=sorted.map(ev=>`<div class="admin-ev-item"><div class="admin-ev-info">${TYPE_EMOJI[ev.type]||''} ${ev.title}<span>${formatDate(ev.date)}${ev.location?' · '+ev.location:''} · <span style="color:${TYPE_COLORS[ev.type]}">${TYPE_LABELS[ev.type]||ev.type}</span></span></div><div style="display:flex;gap:6px;"><button class="btn-danger" style="background:#2980b9;" onclick="editEvent('${ev.id}')">تعديل</button><button class="btn-danger" onclick="deleteEvent('${ev.id}')">حذف</button></div></div>`).join('');
+    const c=document.getElementById('admin-ev-list'); if(!c) return;
+    const s=[...events].sort((a,b)=>a.date.localeCompare(b.date));
+    if (!s.length) { c.innerHTML='<div class="empty-msg">لا توجد أحداث مسجلة بعد</div>'; return; }
+    c.innerHTML=s.map(ev=>`<div class="admin-ev-item"><div class="admin-ev-info">${TYPE_EMOJI[ev.type]||''} ${ev.title}<span>${formatDate(ev.date)}${ev.location?' · '+ev.location:''} · <span style="color:${TYPE_COLORS[ev.type]}">${TYPE_LABELS[ev.type]||ev.type}</span></span></div><div style="display:flex;gap:6px;"><button class="btn-danger" style="background:#2980b9;" onclick="editEvent('${ev.id}')">تعديل</button><button class="btn-danger" onclick="deleteEvent('${ev.id}')">حذف</button></div></div>`).join('');
   }
 
   loadEvents();
